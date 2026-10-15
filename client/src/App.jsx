@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import logo from './assets/songbird-logo.svg'
+import logo from './assets/aurelle-logo.svg'
+import { BRAND } from './brand.js'
 import { APP_CONFIG, setMessageMaxChars } from './settings/appConfig.js'
 import { fetchAppInfo } from './api/appMetaApi.js'
 import { setNameLimits } from './utils/nameLimits.js'
@@ -22,11 +23,17 @@ const PWA_PERMISSIONS_PROMPT_KEY = 'songbird-pwa-permissions-prompt'
 const ROUTE_CHUNK_TELEMETRY_KEY = 'songbird-route-chunk-telemetry-v1'
 const CHUNK_RECOVERY_ATTEMPT_KEY = 'songbird-chunk-recovery-attempted'
 const loadAuthPage = () => import('./pages/AuthPage.jsx')
-const loadChatPage = () => import('./pages/ChatPage.jsx')
+const loadCallLayer = () => import('./calls/CallLayer.jsx')
+// The call layer wraps the chat page, so fetch both chunks in parallel.
+const loadChatPage = () => {
+  loadCallLayer().catch(() => null)
+  return import('./pages/ChatPage.jsx')
+}
 const loadInvitePage = () => import('./pages/InvitePage.jsx')
 const loadAdminPage = () => import('./pages/AdminPage.jsx')
 const AuthPage = lazy(loadAuthPage)
 const ChatPage = lazy(loadChatPage)
+const CallLayer = lazy(loadCallLayer)
 const InvitePage = lazy(loadInvitePage)
 const AdminPage = lazy(loadAdminPage)
 
@@ -60,7 +67,7 @@ function RouteLoadingFallback({ themeColor, onVisibleChange = null }) {
       style={{ backgroundColor: themeColor }}
     >
       <div className="flex flex-col items-center gap-3 text-center text-emerald-700 dark:text-emerald-300">
-        <img src={logo} alt="Songbird logo" className="h-10 w-10 animate-pulse" />
+        <img src={logo} alt={`${BRAND.name} logo`} className="h-10 w-10 animate-pulse" />
         <p className="text-xs font-semibold tracking-wide">{`Loading${'.'.repeat(dots)}`}</p>
       </div>
     </div>
@@ -727,6 +734,7 @@ export default function App() {
           messagePageSize: data?.chatMessagePageSize,
           cacheTtlHours: data?.chatCacheTtlHours,
           fileUploadEnabled: data?.fileUploadEnabled,
+          callsEnabled: data?.callsEnabled,
           fileUploadMaxFiles: data?.fileUploadMaxFiles,
           fileUploadMaxSizeMb: data?.fileUploadMaxSizeMb,
           fileUploadMaxTotalSizeMb: data?.fileUploadMaxTotalSizeMb,
@@ -994,10 +1002,10 @@ export default function App() {
             <header className="flex flex-wrap items-center justify-center gap-3 text-center sm:gap-4">
               <div className="flex items-center gap-1 text-black dark:text-white">
                 <div className="flex h-8 w-8 items-center justify-center sm:h-9 sm:w-9">
-                  <img src={logo} alt="Songbird logo" className="h-8 w-8" />
+                  <img src={logo} alt={`${BRAND.name} logo`} className="h-8 w-8" />
                 </div>
                 <div>
-                  <p className="text-xl font-bold tracking-tight sm:text-2xl">Songbird</p>
+                  <p className="text-xl font-bold tracking-tight sm:text-2xl">{BRAND.name}</p>
                 </div>
               </div>
             </header>
@@ -1047,16 +1055,18 @@ export default function App() {
               {user && (route === 'chat' || route === 'admin') ? (
                 // Keep ChatPage mounted while visiting /admin so health, SSE,
                 // and in-memory caches survive. Hide it instead of unmounting.
-                <div
-                  className={
-                    route === 'admin'
-                      ? 'hidden'
-                      : 'flex min-h-0 h-full w-full flex-1'
-                  }
-                  aria-hidden={route === 'admin' ? true : undefined}
-                >
-                  <ChatPage user={user} setUser={setUser} isDark={isDark} setIsDark={setIsDark} toggleTheme={toggleTheme} adminPanelEnabled={adminPanelEnabled} />
-                </div>
+                <CallLayer user={user}>
+                  <div
+                    className={
+                      route === 'admin'
+                        ? 'hidden'
+                        : 'flex min-h-0 h-full w-full flex-1'
+                    }
+                    aria-hidden={route === 'admin' ? true : undefined}
+                  >
+                    <ChatPage user={user} setUser={setUser} isDark={isDark} setIsDark={setIsDark} toggleTheme={toggleTheme} adminPanelEnabled={adminPanelEnabled} />
+                  </div>
+                </CallLayer>
               ) : null}
               {route === 'admin' && user && adminPanelEnabled ? (
                 <AdminPage user={user} setUser={setUser} isDark={isDark} onToggleTheme={toggleTheme} onBack={() => navigate('/chat', true)} />

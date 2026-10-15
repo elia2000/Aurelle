@@ -20,6 +20,8 @@ import Avatar from "../common/Avatar.jsx";
 import UserRoleBadge from "../common/UserRoleBadge.jsx";
 import VerifiedBadge from "../common/VerifiedBadge.jsx";
 import Tooltip from "../common/Tooltip.jsx";
+import CallButtons from "../calls/CallButtons.jsx";
+import { useHeaderActions } from "../../calls/useHeaderActions.js";
 import {
   FocusedMediaModal,
   MessageComposer,
@@ -118,6 +120,7 @@ export default function ChatWindowPanel({
   headerAvatarColor = null,
   microphonePermissionStatus = "unknown",
   onRequestMicrophonePermission = null,
+  onRequestVideoNote = null,
   copyToastVisible = false,
   registerMessageRef = null,
   showFloatingLabel = false,
@@ -135,6 +138,8 @@ export default function ChatWindowPanel({
       ? window.matchMedia("(max-width: 767px) and (pointer: coarse)").matches
       : false,
   );
+  const headerActions = useHeaderActions(activeHeaderPeer);
+  const showCallButtons = activeChat?.type === "dm" && headerActions.count > 0;
   const activePeerColor =
     activeHeaderPeer?.color ||
     headerAvatarColor ||
@@ -1143,6 +1148,10 @@ export default function ChatWindowPanel({
             >
               <ArrowLeft size={18} />
             </button>
+            {showCallButtons ? (
+              // Mirrors the call buttons on the right so the title stays centred on desktop.
+              <span aria-hidden="true" className="hidden shrink-0 md:block" style={{ width: headerActions.width }} />
+            ) : null}
             <ContextMenuSurface
               as="div"
               className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1"
@@ -1262,6 +1271,9 @@ export default function ChatWindowPanel({
                 ) : null}
               </>
             </ContextMenuSurface>
+            {showCallButtons ? (
+              <CallButtons chatId={activeChatId} peer={activeHeaderPeer} user={user} />
+            ) : null}
             {headerAvatarIcon ? (
               <ContextMenuSurface
                 as="div"
@@ -1486,6 +1498,7 @@ export default function ChatWindowPanel({
             composerInputRef={composerInputRef}
             microphonePermissionStatus={microphonePermissionStatus}
             onRequestMicrophonePermission={onRequestMicrophonePermission}
+            onRequestVideoNote={onRequestVideoNote}
           />
       ) : null}
 
